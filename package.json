@@ -1,28 +1,26 @@
 {
-  "name": "ibcf-protocol",
+  "name": "ibcf-runtime",
   "version": "0.1.0",
-  "description": "Intent-Bound Capability Frames (IBCF) - experimental AI-native authorization primitive.",
+  "description": "Intent-Bound Capability Frames (IBCF) runtime library and CLI for safe, environment-agnostic agent execution.",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "validate": "ts-node src/cli.ts"
+    "build": "tsc -p tsconfig.json",
+    "test": "node dist/demo.js",
+    "validate:examples": "node dist/cli.js validate examples/simple.json && node dist/cli.js validate examples/simple.yaml"
   },
-  "keywords": [
-    "ibcf",
-    "authorization",
-    "ai",
-    "llm",
-    "capability",
-    "security",
-    "protocol"
-  ],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^22.0.0",
+  "bin": {
+    "ibcf": "dist/cli.js"
+  },
+  "dependencies": {
     "js-yaml": "^4.1.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
-  }
+    "yargs": "^17.0.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.0",
+    "@types/node": "^20.0.0",
+    "@types/yargs": "^17.0.0",
+    "typescript": "^5.0.0"
+  },
+  "license": "MIT"
 }

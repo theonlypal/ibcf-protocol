@@ -6,83 +6,97 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-/**
- * Validate basic structure and temporal validity of an IBCF frame.
- * NOTE: Cryptographic signature verification is intentionally out-of-scope
- * for this reference implementation and should be added in production.
- */
-export function validateIBCFFrame(frame: any, now: Date = new Date()): ValidationResult {
+const SUPPORTED_VERSIONS = new Set(['v0.1']);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function validateFrame(frame: unknown): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Basic shape checks
-  if (!frame || typeof frame !== 'object') {
-    return { valid: false, errors: ['Frame is not an object'], warnings };
+  if (!isRecord(frame)) {
+    return { valid: false, errors: ['Frame must be an object'], warnings };
   }
 
-  const requiredFields: (keyof IBCFFrame)[] = [
-    'IBCF',
-    'issuer',
-    'subject',
-    'intent',
-    'allowed_actions',
-    'duration',
-    'issued_at',
-    'signature',
-  ];
+  const {
+    version,
+    issuer,
+    subject,
+    intent,
+    allowedActions,
+    durationSeconds,
+    issuedAt,
+    expiresAt,
+    metadata,
+    signature,
+  } = frame as Partial<IBCFFrame>;
 
-  for (const field of requiredFields) {
-    if (frame[field] === undefined || frame[field] === null) {
-      errors.push(`Missing required field: ${field}`);
+  if (typeof version !== 'string') {
+    errors.push('version is required and must be a string');
+  } else if (!SUPPORTED_VERSIONS.has(version)) {
+    errors.push(`version ${version} is not supported`);
+  }
+
+  if (typeof issuer !== 'string' || issuer.trim() === '') {
+    errors.push('issuer is required and must be a non-empty string');
+  }
+
+  if (typeof subject !== 'string' || subject.trim() === '') {
+    errors.push('subject is required and must be a non-empty string');
+  }
+
+  if (typeof intent !== 'string' || intent.trim() === '') {
+    errors.push('intent is required and must be a non-empty string');
+  }
+
+  if (!Array.isArray(allowedActions)) {
+    errors.push('allowedActions is required and must be an array of strings');
+  } else if (allowedActions.some((action) => typeof action !== 'string' || action.trim() === '')) {
+    errors.push('allowedActions must only contain non-empty strings');
+  } else if (allowedActions.length === 0) {
+    warnings.push('allowedActions is empty; no actions can be executed');
+  }
+
+  if (typeof durationSeconds !== 'number' || Number.isNaN(durationSeconds)) {
+    errors.push('durationSeconds is required and must be a number');
+  } else if (durationSeconds <= 0) {
+    errors.push('durationSeconds must be greater than zero');
+  } else if (durationSeconds > 60 * 60 * 24 * 30) {
+    warnings.push('durationSeconds exceeds 30 days; consider shortening the frame lifetime');
+  }
+
+  let issuedDate: Date | null = null;
+  if (typeof issuedAt !== 'string') {
+    errors.push('issuedAt is required and must be an ISO8601 string');
+  } else {
+    issuedDate = new Date(issuedAt);
+    if (Number.isNaN(issuedDate.getTime())) {
+      errors.push('issuedAt must be a valid ISO8601 date');
+      issuedDate = null;
     }
   }
 
-  if (typeof frame.IBCF !== 'string') {
-    errors.push('IBCF must be a string (e.g. "v0.1")');
-  } else if (!frame.IBCF.startsWith('v0.')) {
-    warnings.push(`Unsupported or unknown IBCF version: ${frame.IBCF}`);
-  }
-
-  if (!Array.isArray(frame.allowed_actions)) {
-    errors.push('allowed_actions must be an array of strings');
-  }
-
-  if (typeof frame.duration !== 'number' || frame.duration <= 0) {
-    errors.push('duration must be a positive number (seconds)');
-  }
-
-  // Time validity
-  if (typeof frame.issued_at === 'string') {
-    const issued = new Date(frame.issued_at);
-    if (isNaN(issued.getTime())) {
-      errors.push('issued_at must be a valid ISO 8601 timestamp');
+  if (expiresAt !== undefined) {
+    if (typeof expiresAt !== 'string') {
+      errors.push('expiresAt must be an ISO8601 string when provided');
     } else {
-      const expires = new Date(issued.getTime() + frame.duration * 1000);
-      if (now > expires) {
-        errors.push('Frame is expired');
+      const expiresDate = new Date(expiresAt);
+      if (Number.isNaN(expiresDate.getTime())) {
+        errors.push('expiresAt must be a valid ISO8601 date');
+      } else if (issuedDate && expiresDate <= issuedDate) {
+        errors.push('expiresAt must be later than issuedAt');
       }
     }
   }
 
-  // Constraints sanity checks
-  if (frame.constraints) {
-    const c = frame.constraints;
-    if (c.max_files !== undefined && (typeof c.max_files !== 'number' || c.max_files <= 0)) {
-      errors.push('constraints.max_files must be a positive number if provided');
-    }
-    if (c.max_runtime !== undefined && (typeof c.max_runtime !== 'number' || c.max_runtime <= 0)) {
-      errors.push('constraints.max_runtime must be a positive number if provided');
-    }
-    if (c.prohibited && !Array.isArray(c.prohibited)) {
-      errors.push('constraints.prohibited must be an array of strings if provided');
-    }
+  if (metadata !== undefined && !isRecord(metadata)) {
+    errors.push('metadata, if provided, must be an object');
   }
 
-  // Signature sanity check (placeholder)
-  if (typeof frame.signature !== 'string' || frame.signature.length === 0) {
-    errors.push('signature must be a non-empty string');
-  } else {
-    warnings.push('Signature is not cryptographically verified in this reference implementation');
+  if (signature !== undefined && typeof signature !== 'string') {
+    errors.push('signature, if provided, must be a string');
   }
 
   return {

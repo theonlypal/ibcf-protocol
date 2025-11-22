@@ -1,184 +1,79 @@
-# IBCF Protocol (Intent-Bound Capability Frames)
+# IBCF Runtime
 
-**Version:** v0.1 (experimental)  
-**Status:** Draft  
-**Author:** Rayan Pal (concept), AI-assisted drafting
+`ibcf-runtime` provides a small, focused runtime and CLI for **Intent-Bound Capability Frames (IBCF)**. Frames describe *who* issued a capability, *who* may use it, *what* intent it covers, and *which* actions are allowed inside a controlled time window. This library keeps enforcement logic separate from any particular environment, so you can wire in your own handlers for filesystem, network, or other actions.
 
----
-
-## Overview
-
-IBCF (Intent-Bound Capability Frames) is an **AI-native authorization primitive** designed to replace static API keys, long-lived tokens, and service accounts in AI-executed workflows.
-
-Instead of authenticating *requests* with static secrets, IBCF binds **intent and capability** to a short-lived, self-describing capability frame that:
-
-- Specifies **what** an agent can do
-- Defines **where** it can act (environment / domain)
-- Constrains **how long** it can act
-- Encodes **limits** (e.g., max files, runtime, prohibitions)
-- Is **ephemeral**, **verifiable**, and **portable** across AI runtimes
-
-This repository contains:
-
-- A human-readable specification (`spec/ibcf-v0.1.md`)
-- A reference JSON/YAML format (`spec/examples`)
-- A minimal TypeScript validator + CLI (`src/`)
-- Examples of how an AI runtime or tool could issue and validate IBCF frames
-
-> ⚠️ IBCF v0.1 is an experimental draft intended for discussion, prototyping, and iteration. It is **not** ready for production security use without audit and refinement.
-
----
-
-## Motivation
-
-Traditional web auth is built around:
-
-- **Static API keys**
-- **Long-lived OAuth tokens**
-- **Service accounts**
-- **Bearer tokens (JWTs)**
-
-These assume:
-
-1. A human developer configures credentials.
-2. A long-running application sends predictable HTTP requests.
-3. The boundary between "client" and "server" is stable.
-
-In an AI-native world:
-
-- Tasks are delegated dynamically to LLMs and agents.
-- Execution environments (code sandboxes, browsers, containers) are ephemeral.
-- Authorization should be **per-task**, **per-intent**, and **time-bounded**.
-- Users do not want to manage secrets, credentials, or cloud APIs.
-
-Static API keys are insecure, brittle, and poorly matched to this execution model.
-
-IBCF aims to provide a **protocol-level primitive** that:
-
-- Is easy to reason about for humans *and* models.
-- Encodes **intent, scope, limits, and duration** in one object.
-- Can be issued and validated by runtimes without exposing long-lived secrets.
-- Scales across tools, platforms, and agent frameworks.
-
----
-
-## IBCF in One Paragraph
-
-An IBCF (Intent-Bound Capability Frame) is a short-lived, signed document that grants an agent the ability to perform a specific set of actions within a defined context for a limited duration.
-
-It is closer to a **capability ticket** than an API key:
-
-- It describes allowed actions (e.g., `file.write`, `generate.html`, `run.build`).
-- It encodes constraints (e.g., max files, runtime, no external network).
-- It binds the capability to a context (e.g., `local_project_env`).
-- It carries a cryptographic signature from the issuing runtime.
-- It expires automatically and cannot be reused globally as a secret.
-
----
-
-## Repository Structure
-
-```text
-ibcf-protocol/
-  README.md                  # This file
-  spec/
-    ibcf-v0.1.md             # Human-readable protocol spec
-    examples/
-      simple-frame.yaml      # Minimal example frame
-      static-site-frame.yaml # Example for static site generation
-  src/
-    types.ts                 # TypeScript types for IBCF
-    validate.ts              # Core validation logic
-    cli.ts                   # CLI for validating frames
-    index.ts                 # Library entrypoint
-  package.json
-  tsconfig.json
-  .gitignore
-  LICENSE
-```
-
----
-
-## Quick Start
-
-### 1. Install dependencies
+## Installation
 
 ```bash
-npm install
+npm install ibcf-runtime
 ```
 
-### 2. Build the project
+The package also ships with a CLI. You can run it directly once installed or with `npx`:
 
 ```bash
-npm run build
+npx ibcf validate examples/simple.yaml
+npx ibcf explain examples/simple.json
 ```
 
-### 3. Validate an example IBCF frame
+## Library usage
+
+```ts
+import { validateFrame, createRuntime, IBCFFrame } from 'ibcf-runtime';
+
+const frame: IBCFFrame = {
+  version: 'v0.1',
+  issuer: 'example.com',
+  subject: 'demo-user',
+  intent: 'demo-intent',
+  allowedActions: ['echo.message'],
+  durationSeconds: 3600,
+  issuedAt: new Date().toISOString(),
+};
+
+const validation = validateFrame(frame);
+if (!validation.valid) {
+  throw new Error(`Invalid frame: ${validation.errors.join(', ')}`);
+}
+
+const runtime = await createRuntime(frame, {
+  'echo.message': async (payload) => ({ echoed: payload }),
+});
+
+const result = await runtime.run('echo.message', { text: 'hello' });
+console.log(result);
+```
+
+## CLI usage
+
+Validate a frame file (JSON or YAML) and view errors/warnings:
 
 ```bash
-npm run validate spec/examples/simple-frame.yaml
+npx ibcf validate examples/simple.yaml
 ```
 
-You should see a validation report printed to stdout.
-
----
-
-## Example IBCF Frame (YAML)
-
-```yaml
-IBCF: v0.1
-issuer: chatgpt-runtime
-subject: "local_project_env"
-intent: "static_site_generation"
-allowed_actions:
-  - file.write
-  - file.read
-  - generate.html
-  - generate.css
-  - run.build
-constraints:
-  max_files: 150
-  max_runtime: 180
-  prohibited:
-    - network.external
-duration: 300
-context_hash: "82e1a94bd..."
-user_fingerprint: "u_19f8d1..."
-issued_at: "2025-11-21T12:00:00Z"
-signature: "sig_da7fa2f..."
-```
-
----
-
-## CLI Usage
-
-The minimal CLI lets you validate a frame file:
+Explain a frame in human-readable form:
 
 ```bash
-# Validate a YAML or JSON frame
-npm run validate path/to/frame.yaml
+npx ibcf explain examples/simple.json
 ```
 
-The CLI will:
+Exit codes:
+- `0` on success (valid frame for `validate`, successful explain for `explain`)
+- `1` when validation fails
+- `2` on parsing or unexpected errors
 
-- Parse the frame
-- Validate required fields and types
-- Check that `duration` and `issued_at` imply the frame is still valid
-- Print human-readable results
+## Examples
 
----
+Sample frames live in [`examples/`](examples/):
+- [`simple.json`](examples/simple.json)
+- [`simple.yaml`](examples/simple.yaml)
 
-## Roadmap
+You can validate them after building with:
 
-- [ ] Refine the core spec with community feedback
-- [ ] Add cryptographic signing & verification (currently stubbed)
-- [ ] Define a registry of standard `intent` and `allowed_actions` values
-- [ ] Implement multi-issuer support
-- [ ] Provide SDKs for Node, Python, Go
-- [ ] Propose an IETF-style draft for standardization
+```bash
+npm run validate:examples
+```
 
----
+## Notes
 
-## License
-
-MIT
+This runtime is an early draft focused on structural validation and policy enforcement. It does **not** yet perform cryptographic verification of `signature` fields or invoke any real side effects. Wire the provided action handlers to your own environment to connect capabilities to real operations.
