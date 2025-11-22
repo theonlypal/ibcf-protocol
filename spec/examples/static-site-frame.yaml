@@ -1,0 +1,20 @@
+IBCF: v0.1
+issuer: "chatgpt-runtime"
+subject: "local_project_env"
+intent: "static_site_generation"
+allowed_actions:
+  - file.write
+  - file.read
+  - generate.html
+  - generate.css
+  - run.build
+constraints:
+  max_files: 150
+  max_runtime: 180
+  prohibited:
+    - network.external
+duration: 300
+context_hash: "82e1a94bd..."
+user_fingerprint: "u_19f8d1..."
+issued_at: "2025-11-21T12:00:00Z"
+signature: "sig_da7fa2f..."

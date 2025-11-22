@@ -1,0 +1,10 @@
+IBCF: v0.1
+issuer: "local-runtime"
+subject: "local_project_env"
+intent: "static_site_generation"
+allowed_actions:
+  - file.write
+  - file.read
+duration: 120
+issued_at: "2025-11-21T12:00:00Z"
+signature: "sig_stub"
