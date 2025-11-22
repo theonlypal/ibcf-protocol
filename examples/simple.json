@@ -1,0 +1,13 @@
+{
+  "version": "v0.1",
+  "issuer": "example.com",
+  "subject": "demo-user",
+  "intent": "Demonstration of IBCF runtime",
+  "allowedActions": ["echo.message"],
+  "durationSeconds": 3600,
+  "issuedAt": "2024-01-01T00:00:00Z",
+  "expiresAt": "2124-01-01T00:00:00Z",
+  "metadata": {
+    "note": "Sample frame for library and CLI tests"
+  }
+}
