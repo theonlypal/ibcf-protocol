@@ -57,6 +57,9 @@ function describeFrame(frame: IBCFFrame) {
   if (frame.allowedActions.length > 5) {
     risks.push('Frame allows many actions; review necessity.');
   }
+  if (frame.allowedActions.some((action) => action === '*' || action.endsWith('.*'))) {
+    risks.push('Allowed actions include wildcards; ensure this scope is intended.');
+  }
   if (frame.durationSeconds > 60 * 60 * 24 * 7) {
     risks.push('Duration exceeds 7 days; consider shortening.');
   }
