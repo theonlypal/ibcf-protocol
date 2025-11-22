@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "node dist/demo.js",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test --experimental-vm-modules -r ts-node/register test/*.test.ts",
     "validate:examples": "node dist/cli.js validate examples/simple.json && node dist/cli.js validate examples/simple.yaml"
   },
   "bin": {
@@ -20,6 +20,7 @@
     "@types/js-yaml": "^4.0.0",
     "@types/node": "^20.0.0",
     "@types/yargs": "^17.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   },
   "license": "MIT"
